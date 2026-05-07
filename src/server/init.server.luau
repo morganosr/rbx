@@ -1,4 +1,3 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-require(ReplicatedStorage.Tests.DataService)
-require(ReplicatedStorage.Tests.Remote)
+require(ReplicatedStorage.Tests.State)

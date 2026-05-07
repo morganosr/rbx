@@ -1,6 +1,23 @@
 local HttpService = game:GetService("HttpService")
+
+local Event = require(script.Parent.Event)
+
 local State = {}
 State.__index = State
+
+export type Observer = {
+    Destroy: (self: Observer) -> (),
+}
+
+export type State = {
+    Data: { [any]: any },
+    ID: string,
+    Changed: Event.Event<string, any>,
+    Get: (self: State, key: string) -> any,
+    Set: (self: State, key: string, value: any) -> any,
+    Increment: (self: State, key: string, value: number?) -> number,
+    Observe: (self: State, key: string, callback: (any, string) -> (), scope: string?) -> Observer,
+}
 
 local function newTrieNode()
     return {
@@ -28,14 +45,15 @@ function Observer:Destroy()
     end
 end
 
-function State.new(data)
+function State.new(data): State
     local self = setmetatable({
         Data = data or {},
         ID = HttpService:GenerateGUID(false),
+        Changed = Event.new(),
         _root = newTrieNode(),
     }, State)
 
-    return self
+    return (self :: any) :: State
 end
 
 function State:Get(key)
@@ -67,6 +85,7 @@ function State:Set(key, value)
     end
     node[parts[#parts]] = value
     self:_notify(key)
+    self.Changed:Fire(key, value)
     return value
 end
 

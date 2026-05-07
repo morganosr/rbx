@@ -151,6 +151,69 @@ do
 	check("Increment notifies observers", last == 3)
 end
 
+-- Changed event fires on every Set with (key, value)
+do
+	local s = State.new()
+	local fires = {}
+	s.Changed:Connect(function(k, v)
+		table.insert(fires, { k = k, v = v })
+	end)
+	s:Set("a", 1)
+	s:Set("b/c", "hello")
+	check("Changed fires once per Set", #fires == 2)
+	check("Changed: first fire passes (key, value)", fires[1].k == "a" and fires[1].v == 1)
+	check("Changed: nested key arrives verbatim", fires[2].k == "b/c" and fires[2].v == "hello")
+end
+
+-- Changed fires on Increment (because Increment goes through Set)
+do
+	local s = State.new({ score = 10 })
+	local got
+	s.Changed:Connect(function(k, v)
+		got = { k = k, v = v }
+	end)
+	s:Increment("score", 5)
+	check("Changed fires on Increment with new total", got and got.k == "score" and got.v == 15)
+end
+
+-- Changed: multiple listeners
+do
+	local s = State.new()
+	local a, b = 0, 0
+	s.Changed:Connect(function()
+		a += 1
+	end)
+	s.Changed:Connect(function()
+		b += 1
+	end)
+	s:Set("k", 1)
+	check("Changed: multiple listeners both fire", a == 1 and b == 1)
+end
+
+-- Changed: Disconnect stops further fires
+do
+	local s = State.new()
+	local count = 0
+	local conn = s.Changed:Connect(function()
+		count += 1
+	end)
+	s:Set("k", 1)
+	conn:Disconnect()
+	s:Set("k", 2)
+	check("Changed: disconnected listener doesn't fire again", count == 1)
+end
+
+-- Changed does NOT fire from Observer's initial-fire (initial fire is hydration, not a Set)
+do
+	local s = State.new({ x = 100 })
+	local count = 0
+	s.Changed:Connect(function()
+		count += 1
+	end)
+	s:Observe("x", function() end)
+	check("Changed does not fire when an Observer is created (no Set happened)", count == 0)
+end
+
 print(`\n--- {passed} passed, {failed} failed ---`)
 
 return true
