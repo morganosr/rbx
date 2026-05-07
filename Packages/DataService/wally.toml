@@ -1,0 +1,9 @@
+[package]
+name = "morganosr/dataservice"
+version = "1.0.0"
+realm = "shared"
+registry = "https://github.com/UpliftGames/wally-index"
+license = "MIT"
+
+[dependencies]
+SaveData = "morganosr/savedata@^1.0.0"
