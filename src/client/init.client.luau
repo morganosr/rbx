@@ -1,1 +1,3 @@
-print("Hello world, from client!")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+require(ReplicatedStorage.Tests.Remote)
