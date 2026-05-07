@@ -1,0 +1,6 @@
+{
+	"robloxLsp.diagnostics.enable": false,
+	"editor.formatOnSave": true,
+	"stylua.targetReleaseVersion": "latest",
+	"robloxLsp.workspace.maxPreload": 2000
+}
