@@ -1,0 +1,10 @@
+[package]
+name = "morganosr/replicatedstate"
+version = "1.0.0"
+realm = "shared"
+registry = "https://github.com/UpliftGames/wally-index"
+license = "MIT"
+
+[dependencies]
+State = "morganosr/state@^1.1.0"
+Remote = "morganosr/remote@^1.0.0"
