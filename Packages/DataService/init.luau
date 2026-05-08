@@ -1,8 +1,11 @@
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 
+local ReplicatedState = require(script.Parent.ReplicatedState)
 local SaveData = require(script.Parent.SaveData)
 
 local DEFAULT_DATASTORE_NAME = "PlayerData"
+local PUBLISH_NAME_PREFIX = "PlayerData:"
 
 local DataService = {}
 
@@ -10,7 +13,32 @@ local _started = false
 local _template: { [any]: any }? = nil
 local _datastoreName = DEFAULT_DATASTORE_NAME
 local _data: { [Player]: SaveData.SaveData } = {}
+local _publishes: { [Player]: any } = {}
 local _connections: { RBXScriptConnection } = {}
+
+local function publishFor(player: Player, sd: SaveData.SaveData)
+	if _publishes[player] then
+		return
+	end
+	local handle = ReplicatedState.publish(
+		(sd :: any).State,
+		PUBLISH_NAME_PREFIX .. tostring(player.UserId),
+		{
+			canSubscribe = function(p: Player)
+				return p == player
+			end,
+		}
+	)
+	_publishes[player] = handle
+end
+
+local function unpublishFor(player: Player)
+	local handle = _publishes[player]
+	_publishes[player] = nil
+	if handle then
+		handle:Destroy()
+	end
+end
 
 local function onPlayerAdded(player: Player)
 	if _data[player] then
@@ -28,10 +56,20 @@ local function onPlayerAdded(player: Player)
 			_data[player] = nil
 		end
 		sd:Destroy()
+		return
+	end
+
+	-- Publish only if we're still started AND this player is still tracked
+	-- (PlayerRemoving could have fired during the Load yield).
+	if _started and _data[player] == sd then
+		publishFor(player, sd)
 	end
 end
 
 local function onPlayerRemoving(player: Player)
+	-- Tear down the publish first so clients receive no further deltas during finalize.
+	unpublishFor(player)
+
 	-- Remove from the registry first so a concurrent Get() sees nil rather
 	-- than handing back a SaveData that's mid-Destroy.
 	local sd = _data[player]
@@ -68,6 +106,14 @@ function DataService:Stop()
 		conn:Disconnect()
 	end
 	table.clear(_connections)
+
+	-- Tear down publishes BEFORE SaveData destroys so clients see the wire close
+	-- before the data goes away.
+	local publishesToDestroy = table.clone(_publishes)
+	table.clear(_publishes)
+	for _, handle in publishesToDestroy do
+		handle:Destroy()
+	end
 
 	-- Snapshot before iterating: Destroy yields, and we want a stable view.
 	local toDestroy = {}
@@ -126,5 +172,24 @@ function DataService:GetAll(): { SaveData.SaveData }
 	end
 	return result
 end
+
+-- Client-side API: mirrors the Remote.RemoteClient pattern.
+local DataClient = {}
+
+-- Yields until the local player's data is published and the snapshot arrives.
+-- Returns a ReplicatedState Mirror — :Get / :Observe / .Changed work; writes
+-- error (writes must originate on the server through SaveData).
+function DataClient.get(): any
+	if not RunService:IsClient() then
+		error("DataService.DataClient.get can only be called on the client", 2)
+	end
+	local localPlayer = Players.LocalPlayer
+	if not localPlayer then
+		error("DataService.DataClient.get: no LocalPlayer found", 2)
+	end
+	return ReplicatedState.subscribe(PUBLISH_NAME_PREFIX .. tostring(localPlayer.UserId))
+end
+
+DataService.DataClient = DataClient
 
 return DataService
