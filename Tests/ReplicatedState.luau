@@ -43,6 +43,17 @@ if RunService:IsServer() then
 			ReplicatedState.publish({} :: any, "__test_bad_state")
 		end)
 		check("publish rejects non-State value", not ok3)
+		-- Simulate a State <1.1 (no .Changed): error should call out the version requirement.
+		local legacy = { Data = {}, ID = "legacy", Get = function() end, Set = function() end }
+		local ok3b, err3b = pcall(function()
+			ReplicatedState.publish(legacy :: any, "__test_legacy_state")
+		end)
+		check("publish rejects State without .Changed (pre-1.1)", not ok3b)
+		check(
+			"pre-1.1 error message points at the version requirement",
+			not ok3b and typeof(err3b) == "string" and string.find(err3b, "1%.1") ~= nil,
+			`err={tostring(err3b)}`
+		)
 		local ok4 = pcall(function()
 			ReplicatedState.publish(s, "__test_bad_options", { canSubscribe = 42 } :: any)
 		end)

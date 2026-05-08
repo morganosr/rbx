@@ -50,8 +50,15 @@ function ReplicatedState.publish(state: State.State, name: string?, options: Pub
 	if not RunService:IsServer() then
 		error("ReplicatedState.publish can only be called on the server", 2)
 	end
-	if type(state) ~= "table" or type((state :: any).Changed) ~= "table" then
-		error("ReplicatedState.publish expects a State (with a .Changed event)", 2)
+	if type(state) ~= "table" then
+		error("ReplicatedState.publish expects a State instance", 2)
+	end
+	if type((state :: any).Changed) ~= "table" then
+		error(
+			"ReplicatedState.publish: state has no .Changed event — requires State ^1.1.0. "
+				.. "Bump the State dependency in your wally.toml.",
+			2
+		)
 	end
 	if name == nil then
 		name = (state :: any).ID
@@ -87,7 +94,7 @@ function ReplicatedState.publish(state: State.State, name: string?, options: Pub
 		_playerLeavingConn = nil,
 	}, PublishedState)
 
-	self._remoteConn = remote:Connect(function(player, msgType, ...)
+	self._remoteConn = remote:Connect(function(player, msgType)
 		if self._destroyed then
 			return
 		end
